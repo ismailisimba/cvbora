@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVBora AI CV Generator - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body class="bg-gray-900 h-screen flex items-center justify-center text-gray-100">
+
+    <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-md w-full text-center border border-gray-700">
+        <h1 class="text-3xl font-extrabold mb-2 text-blue-400">CVBora</h1>
+        <p class="text-gray-400 mb-8">Generate professional CVs instantly.</p>
+
+        <div class="space-y-4">
+            <a href="https://ismizo-cvbora.hf.space/auth/google" 
+               class="flex items-center justify-center w-full py-3 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium">
+                <i class="fab fa-google mr-2"></i> Continue with Google
+            </a>
+
+            <a href="https://ismizo-cvbora.hf.space/auth/linkedin" 
+               class="flex items-center justify-center w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium">
+                <i class="fab fa-linkedin mr-2"></i> Continue with LinkedIn
+            </a>
+        </div>
+        
+        <p class="mt-8 text-xs text-gray-500">
+            By continuing, you agree to our 
+            <a href="./terms.html" class="text-blue-400 hover:underline">Terms of Service</a>.
+        </p>
+    </div>
+
+    <script>
+        // Check for Token in URL (Handle Redirect)
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+
+        if (token) {
+            localStorage.setItem('cv_token', token);
+            window.location.href = 'dashboard.html';
+        }
+
+        // If already logged in, go to dashboard
+        if (localStorage.getItem('cv_token')) {
+            window.location.href = 'dashboard.html';
+        }
+    </script>
+</body>
+</html>

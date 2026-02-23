@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVBora</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@7.1.0/build/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Custom Scrollbar for Dark Mode */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col overflow-hidden font-sans">
+
+    <!-- Navbar -->
+    <nav class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center shadow-md z-10">
+        <div class="font-bold text-xl text-blue-400 flex items-center">
+            <i class="fas fa-robot mr-2"></i> CVBora <span class="text-xs bg-blue-900 text-blue-200 px-2 py-0.5 rounded ml-2">PRO</span>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span id="creditsDisplay" class="text-xs font-mono bg-gray-700 text-green-400 py-1 px-3 rounded border border-gray-600">
+                Loading...
+            </span>
+            <button onclick="logout()" class="text-gray-400 hover:text-red-400 transition text-sm">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Grid -->
+    <div class="flex-1 grid grid-cols-1 md:grid-cols-2 h-full overflow-hidden">
+        
+        <!-- LEFT: Inputs (Scrollable) -->
+        <div class="p-6 overflow-y-auto border-r border-gray-700 bg-gray-900">
+            
+            <!-- STEP 1: RESUME SOURCE -->
+            <div class="mb-8">
+                <h2 class="text-lg font-bold text-blue-400 mb-4 flex items-center">
+                    <span class="bg-blue-900 text-blue-300 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                    Candidate Data
+                </h2>
+
+                <!-- TABS -->
+                <div class="flex space-x-2 mb-4">
+                    <button onclick="switchTab('upload')" id="tab-upload" class="flex-1 py-2 text-sm bg-blue-600 text-white rounded shadow">Upload File</button>
+                    <button onclick="switchTab('links')" id="tab-links" class="flex-1 py-2 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600">Links / Text</button>
+                    <button onclick="switchTab('builder')" id="tab-builder" class="flex-1 py-2 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600">Build from Scratch</button>
+                </div>
+
+                <!-- CONTENT: Upload -->
+                <div id="content-upload" class="input-section">
+                    <div class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:bg-gray-800 transition relative">
+                        <input type="file" id="resumeFile" accept=".pdf,.png,.jpg" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="updateFileName(this)">
+                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-500 mb-2"></i>
+                        <p class="text-sm text-gray-400" id="fileNameDisplay">Drag PDF/Image or Click</p>
+                    </div>
+                </div>
+
+                <!-- CONTENT: Text / Links -->
+                <div id="content-links" class="input-section hidden space-y-3">
+                    <input type="text" id="linkedin" placeholder="LinkedIn URL" class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none">
+                    <input type="text" id="github" placeholder="GitHub URL" class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none">
+                    <textarea id="rawText" rows="4" placeholder="Or paste raw resume text here..." class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none"></textarea>
+                </div>
+
+                <!-- CONTENT: Builder -->
+                <div id="content-builder" class="input-section hidden space-y-3 p-4 bg-gray-800 rounded border border-gray-700">
+                    <input type="text" id="buildName" placeholder="Full Name" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm">
+                    <input type="text" id="buildRole" placeholder="Current Job Title" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm">
+                    <textarea id="buildExp" rows="3" placeholder="What is your work experience? (List companies and tasks)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm"></textarea>
+                    <textarea id="buildEdu" rows="2" placeholder="Education (Degree, School)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm"></textarea>
+                    <input type="text" id="buildSkills" placeholder="Skills (comma separated)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm">
+                </div>
+            </div>
+
+            <!-- STEP 2: JOB DESCRIPTION -->
+            <div class="mb-8">
+                <h2 class="text-lg font-bold text-green-400 mb-4 flex items-center">
+                    <span class="bg-green-900 text-green-300 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">2</span>
+                    Target Job
+                </h2>
+                <textarea id="jobDesc" rows="4" class="w-full bg-gray-800 border border-gray-600 rounded p-3 text-sm focus:border-green-500 focus:outline-none mb-2" placeholder="Paste the Job Description here..."></textarea>
+                
+                <label class="flex items-center space-x-2 text-xs text-gray-400 cursor-pointer hover:text-white">
+                    <i class="fas fa-image"></i>
+                    <span>Or upload screenshots of the job post</span>
+                    <input type="file" id="jobDescFiles" multiple accept=".png, .jpg" class="hidden" onchange="alert(this.files.length + ' images selected')">
+                </label>
+            </div>
+
+            <!-- STEP 3: INSTRUCTIONS -->
+            <div class="mb-8">
+                <h2 class="text-lg font-bold text-purple-400 mb-2 flex items-center">
+                    <span class="bg-purple-900 text-purple-300 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                    Instructions
+                </h2>
+                <input type="text" id="instructions" class="w-full bg-gray-800 border border-gray-600 rounded p-3 text-sm" placeholder="E.g., Focus on leadership, keep it 1 page...">
+            </div>
+
+            <button onclick="generateCV()" id="generateBtn" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 rounded-lg shadow-lg transform transition active:scale-95">
+                <i class="fas fa-magic mr-2"></i> Generate Professional CV
+            </button>
+        </div>
+
+        <!-- RIGHT: Output (Scrollable) -->
+        <div class="bg-gray-800 overflow-y-auto relative" id="outputArea">
+            <!-- Placeholder -->
+            <div id="placeholder" class="flex flex-col items-center justify-center h-full text-gray-600 opacity-50">
+                <i class="fas fa-file-alt text-6xl mb-4"></i>
+                <p>Your AI-generated documents will appear here.</p>
+            </div>
+
+            <!-- Result -->
+            <div id="resultContainer" class="hidden min-h-full flex flex-col">
+                <!-- Toolbar -->
+                <div class="bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 z-20">
+                    <h3 class="font-bold text-gray-200">Generated Results</h3>
+                    <button onclick="downloadCV()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
+                        <i class="fas fa-file-word mr-2"></i> Download CV
+                    </button>
+                    <button onclick="downloadCoverLetter()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
+                        <i class="fas fa-file-word mr-2"></i> Download Cover Letter
+                    </button>
+                </div>
+
+                <!-- Preview Paper -->
+                <div class="p-8 flex-1 bg-gray-500 overflow-y-auto">
+                    <div id="previewArea" class="bg-white text-gray-900 p-10 shadow-2xl max-w-2xl mx-auto min-h-[800px]">
+                        <!-- Content Injected Here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="hidden fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-gray-800 border border-gray-600 p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
+            <div class="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-900 text-2xl">
+                <i class="fas fa-coins"></i>
+            </div>
+            <h2 class="text-xl font-bold mb-2 text-white">Daily Limit Reached</h2>
+            <p class="text-gray-400 mb-6 text-sm">You've used your 3 free generations. Get 10 more for 1,000 TZS.</p>
+            
+            <input type="text" id="payPhone" placeholder="255 7XX XXX XXX" class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white mb-4 text-center">
+            
+            <button onclick="pay()" class="w-full bg-green-600 hover:bg-green-500 text-white py-3 rounded font-bold mb-3">
+                Pay with Mobile Money
+            </button>
+            <button onclick="document.getElementById('paymentModal').classList.add('hidden')" class="text-gray-500 hover:text-white text-sm">Cancel</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
