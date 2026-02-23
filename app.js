@@ -60,6 +60,7 @@ async function uploadResume() {
 
 // 3. Generate CV Logic
 let generatedJsonData = null; // Store data globally to use in download
+let currentTab = 'upload'; // Default tab
 
 // 1. Tab Switching Logic
 function switchTab(tabName) {
