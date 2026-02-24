@@ -65,7 +65,7 @@
 
                 <!-- CONTENT: Text / Links -->
                 <div id="content-links" class="input-section hidden space-y-3">
-                    <input type="text" id="linkedin" placeholder="LinkedIn URL" class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none">
+                    <input type="text" id="linkedin" placeholder="Any public URL" class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none">
                     <input type="text" id="github" placeholder="GitHub URL" class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none">
                     <textarea id="rawText" rows="4" placeholder="Or paste raw resume text here..." class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none"></textarea>
                 </div>
@@ -121,12 +121,17 @@
             <div id="resultContainer" class="hidden min-h-full flex flex-col">
                 <!-- Toolbar -->
                 <div class="bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 z-20">
-                    <h3 class="font-bold text-gray-200">Generated Results</h3>
                     <button onclick="downloadCV()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
-                        <i class="fas fa-file-word mr-2"></i> Download CV
+                        <i class="fas fa-file-word mr-2"></i> CV
                     </button>
                     <button onclick="downloadCoverLetter()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
-                        <i class="fas fa-file-word mr-2"></i> Download Cover Letter
+                        <i class="fas fa-file-word mr-2"></i> CL
+                    </button>
+                    <button onclick="downloadPdf('cv')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
+                        <i class="fas fa-file-pdf mr-2"></i> CV
+                    </button>
+                    <button onclick="downloadPdf('cover_letter')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
+                        <i class="fas fa-file-pdf mr-2"></i> CL
                     </button>
                 </div>
 
@@ -147,7 +152,7 @@
                 <i class="fas fa-coins"></i>
             </div>
             <h2 class="text-xl font-bold mb-2 text-white">Daily Limit Reached</h2>
-            <p class="text-gray-400 mb-6 text-sm">You've used your 3 free generations. Get 10 more for 1,000 TZS.</p>
+            <p class="text-gray-400 mb-6 text-sm">You've used your 3 free generations. Get 10 more for 1,000 TZS. Pay through Mixx by Yas (fka. Tigopesa), Airtel Money, or Halopesa.</p>
             
             <input type="text" id="payPhone" placeholder="255 7XX XXX XXX" class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white mb-4 text-center">
             

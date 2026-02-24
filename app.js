@@ -252,7 +252,7 @@ function renderHTMLPreview(data) {
         <h1 class="text-3xl font-bold text-gray-800 border-b-2 border-gray-800 pb-2 mb-4 uppercase">${data.personal_info.name}</h1>
         <p class="text-sm text-center mb-6">
             ${data.personal_info.email} | ${data.personal_info.phone} | ${data.personal_info.location} <br>
-            <a href="${data.personal_info.linkedin}" class="text-blue-600">LinkedIn Profile</a>
+            <a href="${'https://'+data.personal_info.linkedin}" class="text-blue-600">LinkedIn Profile</a>
         </p>
 
         <h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Professional Summary</h2>
@@ -469,16 +469,46 @@ async function downloadCoverLetter() {
 }
 
 
+// Assumes 'cvData' is the JSON object you got from the /api/generate-cv endpoint
+const downloadPdf = async (type = 'cv') => {
+  const response = await fetch(`${API_URL}/download-pdf`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}` 
+    },
+    body: JSON.stringify({
+      type: type, // or 'cover_letter'
+      data: generatedJsonData 
+    })
+  });
+
+  if (response.ok) {
+    // Convert response to blob and trigger download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const filename = type === 'cv' ? `${generatedJsonData.personal_info.name.replace(/\s/g, "_")}_CV.pdf` : `${generatedJsonData.cover_letter.applicant_full_name.replace(/\s/g, "_")}_Cover_Letter.pdf`;
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+};
+
+
+
 
 // 4. Payment Logic
 async function pay() {
-    const phone = document.getElementById('phoneNumber').value;
+    const phone = document.getElementById('payPhone').value;
     if (!phone) return alert("Enter phone number");
 
     try {
         //  /dev/add-credits
         // /pay
-        const res = await fetch(`${API_URL}/dev/add-credits`, {
+        const res = await fetch(`${API_URL}/pay`, {
             method: 'POST',
             headers: { 
                 'Authorization': `Bearer ${token}`,
