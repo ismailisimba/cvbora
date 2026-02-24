@@ -16,7 +16,7 @@ async function loadProfile() {
         });
         const user = await res.json();
         
-        const freeLeft = 3 - user.freeGenerationsUsed;
+        const freeLeft = 1 - user.freeGenerationsUsed;
         const paid = user.paidCredits;
         
         document.getElementById('creditsDisplay').innerText = 
