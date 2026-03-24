@@ -3,163 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CVBora</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docx@7.1.0/build/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        /* Custom Scrollbar for Dark Mode */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1f2937; }
-        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
-    </style>
+    <title>CVBora – AI-Powered CV Generator</title>
+    <meta name="description" content="Generate professional, beautifully designed CVs and cover letters with AI in seconds.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-gray-900 text-gray-100 h-screen flex flex-col overflow-hidden font-sans">
+<body>
 
-    <!-- Navbar -->
-    <nav class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center shadow-md z-10">
-        <div class="font-bold text-xl text-blue-400 flex items-center">
-            <i class="fas fa-robot mr-2"></i> CVBora <span class="text-xs bg-blue-900 text-blue-200 px-2 py-0.5 rounded ml-2">PRO</span>
+    <!-- ── NAVBAR ── -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <i class="fas fa-bolt"></i> CVBora
+            <span class="badge-pro">PRO</span>
         </div>
-        <div class="flex items-center space-x-4">
-            <span id="creditsDisplay" class="text-xs font-mono bg-gray-700 text-green-400 py-1 px-3 rounded border border-gray-600">
-                Loading...
-            </span>
-            <button onclick="logout()" class="text-gray-400 hover:text-red-400 transition text-sm">
-                <i class="fas fa-sign-out-alt"></i> Logout
+        <div class="navbar-right">
+            <div class="credits-pill" id="creditsDisplay">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
+            <div class="storage-pill" id="storageDisplay" title="Storage used">
+                <i class="fas fa-database"></i> <span id="storageText">…</span>
+            </div>
+            <button class="btn-icon" onclick="openFilesModal()" title="My Files">
+                <i class="fas fa-folder-open"></i>
+            </button>
+            <button class="btn-icon danger" onclick="logout()" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
             </button>
         </div>
     </nav>
 
-    <!-- Main Grid -->
-    <div class="flex-1 grid grid-cols-1 md:grid-cols-2 h-full overflow-hidden">
-        
-        <!-- LEFT: Inputs (Scrollable) -->
-        <div class="p-6 overflow-y-auto border-r border-gray-700 bg-gray-900">
-            
-            <!-- STEP 1: RESUME SOURCE -->
-            <div class="mb-8">
-                <h2 class="text-lg font-bold text-blue-400 mb-4 flex items-center">
-                    <span class="bg-blue-900 text-blue-300 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">1</span>
-                    Candidate Data
+    <!-- ── TOAST CONTAINER ── -->
+    <div id="toastContainer"></div>
+
+    <!-- ── MAIN GRID ── -->
+    <div class="main-grid">
+
+        <!-- LEFT PANEL: Inputs -->
+        <div class="panel-left" id="panelLeft">
+
+            <!-- STEP 1: Candidate Data -->
+            <div class="step-block">
+                <h2 class="step-title blue">
+                    <span class="step-badge">1</span> Candidate Data
                 </h2>
 
-                <!-- TABS -->
-                <div class="flex space-x-2 mb-4">
-                    <button onclick="switchTab('upload')" id="tab-upload" class="flex-1 py-2 text-sm bg-blue-600 text-white rounded shadow">Upload File</button>
-                    <button onclick="switchTab('links')" id="tab-links" class="flex-1 py-2 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600">Links / Text</button>
-                    <button onclick="switchTab('builder')" id="tab-builder" class="flex-1 py-2 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600">Build from Scratch</button>
+                <div class="tab-bar">
+                    <button onclick="switchTab('upload')" id="tab-upload" class="tab-btn active">
+                        <i class="fas fa-upload"></i> Upload File
+                    </button>
+                    <button onclick="switchTab('links')" id="tab-links" class="tab-btn">
+                        <i class="fas fa-link"></i> Links / Text
+                    </button>
+                    <button onclick="switchTab('builder')" id="tab-builder" class="tab-btn">
+                        <i class="fas fa-comments"></i> Interview Me
+                    </button>
                 </div>
 
-                <!-- CONTENT: Upload -->
-                <div id="content-upload" class="input-section">
-                    <div class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:bg-gray-800 transition relative">
-                        <input type="file" id="resumeFile" accept=".pdf,.png,.jpg" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="updateFileName(this)">
-                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-500 mb-2"></i>
-                        <p class="text-sm text-gray-400" id="fileNameDisplay">Drag PDF/Image or Click</p>
+                <!-- Upload Tab -->
+                <div id="content-upload" class="tab-content">
+                    <div class="drop-zone" id="resumeDropZone" onclick="document.getElementById('resumeFile').click()">
+                        <input type="file" id="resumeFile" accept=".pdf,.png,.jpg,.jpeg,.docx" class="hidden-input" onchange="handleResumeFile(this)">
+                        <div id="resumePreview" class="drop-zone-inner">
+                            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                            <p class="drop-hint">Click or drag your CV here</p>
+                            <p class="drop-sub">PDF, Image, or DOCX</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- CONTENT: Text / Links -->
-                <div id="content-links" class="input-section hidden space-y-3">
-                    <input type="text" id="linkedin" placeholder="Any public URL" class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none">
-                    <input type="text" id="github" placeholder="GitHub URL" class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none">
-                    <textarea id="rawText" rows="4" placeholder="Or paste raw resume text here..." class="w-full bg-gray-800 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 focus:outline-none"></textarea>
+                <!-- Links Tab -->
+                <div id="content-links" class="tab-content hidden">
+                    <input type="text" id="linkedin" placeholder="🔗 LinkedIn or any public profile URL" class="input-field">
+                    <input type="text" id="github" placeholder="🐙 GitHub profile URL" class="input-field">
+                    <textarea id="rawText" rows="5" placeholder="Or paste your CV / resume text here…" class="input-field"></textarea>
                 </div>
 
-                <!-- CONTENT: Builder -->
-                <div id="content-builder" class="input-section hidden space-y-3 p-4 bg-gray-800 rounded border border-gray-700">
-                    <input type="text" id="buildName" placeholder="Full Name" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm">
-                    <input type="text" id="buildRole" placeholder="Current Job Title" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm">
-                    <textarea id="buildExp" rows="3" placeholder="What is your work experience? (List companies and tasks)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm"></textarea>
-                    <textarea id="buildEdu" rows="2" placeholder="Education (Degree, School)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm"></textarea>
-                    <input type="text" id="buildSkills" placeholder="Skills (comma separated)" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-sm">
+                <!-- Chat Builder Tab -->
+                <div id="content-builder" class="tab-content hidden">
+                    <div id="chatMessages" class="chat-window"></div>
+                    <div class="chat-input-row">
+                        <input type="text" id="chatInput" class="input-field chat-field" placeholder="Type your answer…" onkeydown="if(event.key==='Enter')sendBuilderMessage()">
+                        <button class="btn-send" onclick="sendBuilderMessage()" id="chatSendBtn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <p class="chat-hint" id="chatHint">Start the interview to build your CV from scratch.</p>
+                    <button class="btn-secondary full-width" onclick="startBuilderInterview()" id="startInterviewBtn">
+                        <i class="fas fa-play"></i> Start Interview
+                    </button>
                 </div>
             </div>
 
-            <!-- STEP 2: JOB DESCRIPTION -->
-            <div class="mb-8">
-                <h2 class="text-lg font-bold text-green-400 mb-4 flex items-center">
-                    <span class="bg-green-900 text-green-300 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">2</span>
-                    Target Job
+            <!-- STEP 2: Job Description -->
+            <div class="step-block">
+                <h2 class="step-title green">
+                    <span class="step-badge green">2</span> Target Job
                 </h2>
-                <textarea id="jobDesc" rows="4" class="w-full bg-gray-800 border border-gray-600 rounded p-3 text-sm focus:border-green-500 focus:outline-none mb-2" placeholder="Paste the Job Description here..."></textarea>
-                
-                <label class="flex items-center space-x-2 text-xs text-gray-400 cursor-pointer hover:text-white">
-                    <i class="fas fa-image"></i>
-                    <span>Or upload screenshots of the job post</span>
-                    <input type="file" id="jobDescFiles" multiple accept=".png, .jpg" class="hidden" onchange="alert(this.files.length + ' images selected')">
-                </label>
+                <textarea id="jobDesc" rows="4" class="input-field" placeholder="Paste the job description here…"></textarea>
+
+                <div class="file-upload-row">
+                    <label class="file-label" onclick="document.getElementById('jobDescFiles').click()">
+                        <i class="fas fa-image"></i> Upload job post screenshots
+                    </label>
+                    <input type="file" id="jobDescFiles" multiple accept=".png,.jpg,.jpeg" class="hidden-input" onchange="handleJobDescImages(this)">
+                </div>
+                <div id="jobDescPreviews" class="thumbnail-row"></div>
             </div>
 
-            <!-- STEP 3: INSTRUCTIONS -->
-            <div class="mb-8">
-                <h2 class="text-lg font-bold text-purple-400 mb-2 flex items-center">
-                    <span class="bg-purple-900 text-purple-300 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">3</span>
-                    Instructions
+            <!-- STEP 3: Instructions -->
+            <div class="step-block">
+                <h2 class="step-title purple">
+                    <span class="step-badge purple">3</span> Instructions
                 </h2>
-                <input type="text" id="instructions" class="w-full bg-gray-800 border border-gray-600 rounded p-3 text-sm" placeholder="E.g., Focus on leadership, keep it 1 page...">
+                <input type="text" id="instructions" class="input-field" placeholder="E.g. Focus on leadership, keep it to 1 page, use a bold modern design…">
             </div>
 
-            <button onclick="generateCV()" id="generateBtn" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 rounded-lg shadow-lg transform transition active:scale-95">
-                <i class="fas fa-magic mr-2"></i> Generate Professional CV
+            <button onclick="generateCV()" id="generateBtn" class="btn-generate">
+                <i class="fas fa-magic"></i> Generate Professional CV
             </button>
-        </div>
 
-        <!-- RIGHT: Output (Scrollable) -->
-        <div class="bg-gray-800 overflow-y-auto relative" id="outputArea">
+        </div><!-- /panel-left -->
+
+        <!-- RIGHT PANEL: Output -->
+        <div class="panel-right" id="panelRight">
+
             <!-- Placeholder -->
-            <div id="placeholder" class="flex flex-col items-center justify-center h-full text-gray-600 opacity-50">
-                <i class="fas fa-file-alt text-6xl mb-4"></i>
-                <p>Your AI-generated documents will appear here.</p>
+            <div id="placeholder" class="placeholder-screen">
+                <div class="placeholder-inner">
+                    <i class="fas fa-file-alt placeholder-icon"></i>
+                    <h3>Your AI-generated documents will appear here</h3>
+                    <p>Fill in your details on the left and click Generate.</p>
+                </div>
             </div>
 
             <!-- Result -->
-            <div id="resultContainer" class="hidden min-h-full flex flex-col">
-                <!-- Toolbar -->
-                <div class="bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 z-20">
-                    <button onclick="downloadCV()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
-                        <i class="fas fa-file-word mr-2"></i> CV
-                    </button>
-                    <button onclick="downloadCoverLetter()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
-                        <i class="fas fa-file-word mr-2"></i> CL
-                    </button>
-                    <button onclick="downloadPdf('cv')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
-                        <i class="fas fa-file-pdf mr-2"></i> CV
-                    </button>
-                    <button onclick="downloadPdf('cover_letter')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm shadow flex items-center">
-                        <i class="fas fa-file-pdf mr-2"></i> CL
-                    </button>
-                </div>
+            <div id="resultContainer" class="hidden result-container">
 
-                <!-- Preview Paper -->
-                <div class="p-8 flex-1 bg-gray-500 overflow-y-auto">
-                    <div id="previewArea" class="bg-white text-gray-900 p-10 shadow-2xl max-w-2xl mx-auto min-h-[800px]">
-                        <!-- Content Injected Here -->
+                <!-- Download Toolbar -->
+                <div class="toolbar">
+                    <div class="toolbar-group">
+                        <button onclick="downloadFile('cv','pdf')" class="btn-download pdf">
+                            <i class="fas fa-file-pdf"></i> CV PDF
+                        </button>
+                        <button onclick="downloadFile('cv','word')" class="btn-download word">
+                            <i class="fas fa-file-word"></i> CV Word
+                        </button>
+                    </div>
+                    <div class="toolbar-divider"></div>
+                    <div class="toolbar-group">
+                        <button onclick="downloadFile('cover_letter','pdf')" class="btn-download pdf">
+                            <i class="fas fa-file-pdf"></i> Letter PDF
+                        </button>
+                        <button onclick="downloadFile('cover_letter','word')" class="btn-download word">
+                            <i class="fas fa-file-word"></i> Letter Word
+                        </button>
+                    </div>
+                    <div class="toolbar-group ml-auto">
+                        <button onclick="switchPreview('cv')" id="prev-cv" class="btn-preview active">CV</button>
+                        <button onclick="switchPreview('cover_letter')" id="prev-cl" class="btn-preview">Cover Letter</button>
                     </div>
                 </div>
+
+                <!-- Preview Frames -->
+                <div class="preview-wrapper">
+                    <iframe id="cvFrame" class="preview-frame" sandbox="allow-same-origin"></iframe>
+                    <iframe id="clFrame" class="preview-frame hidden" sandbox="allow-same-origin"></iframe>
+                </div>
+            </div>
+
+        </div><!-- /panel-right -->
+    </div>
+
+    <!-- ── MY FILES MODAL ── -->
+    <div id="filesModal" class="modal-overlay hidden" onclick="closeFilesModal(event)">
+        <div class="modal-box files-modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-folder-open"></i> My Files</h2>
+                <div class="storage-bar-wrap">
+                    <div class="storage-bar-bg">
+                        <div class="storage-bar-fill" id="storageBarFill"></div>
+                    </div>
+                    <span id="storageBarLabel" class="storage-bar-label"></span>
+                </div>
+                <button class="modal-close" onclick="closeFilesModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="filesList" class="files-list">
+                <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading files…</div>
             </div>
         </div>
     </div>
 
-    <!-- Payment Modal -->
-    <div id="paymentModal" class="hidden fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50">
-        <div class="bg-gray-800 border border-gray-600 p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
-            <div class="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-900 text-2xl">
-                <i class="fas fa-coins"></i>
-            </div>
-            <h2 class="text-xl font-bold mb-2 text-white">Daily Limit Reached</h2>
-            <p class="text-gray-400 mb-6 text-sm">You've used your 1 free generation. Get 10 more for 2,500 TZS. Pay through Mixx by Yas (fka. Tigopesa), Airtel Money, or Halopesa.</p>
-            
-            <input type="text" id="payPhone" placeholder="255 7XX XXX XXX" class="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white mb-4 text-center">
-            
-            <button onclick="pay()" class="w-full bg-green-600 hover:bg-green-500 text-white py-3 rounded font-bold mb-3">
-                Pay with Mobile Money
+    <!-- ── PAYMENT MODAL ── -->
+    <div id="paymentModal" class="modal-overlay hidden">
+        <div class="modal-box payment-modal">
+            <div class="payment-icon"><i class="fas fa-coins"></i></div>
+            <h2>Daily Limit Reached</h2>
+            <p class="modal-sub">You've used your free generation. Get 10 more for <strong>908 TZS</strong> via Mixx by Yas, Airtel Money, or Halopesa.</p>
+            <input type="text" id="payPhone" placeholder="255 7XX XXX XXX" class="input-field center-text">
+            <button onclick="pay()" class="btn-generate" style="margin-top:12px">
+                <i class="fas fa-mobile-alt"></i> Pay with Mobile Money
             </button>
-            <button onclick="document.getElementById('paymentModal').classList.add('hidden')" class="text-gray-500 hover:text-white text-sm">Cancel</button>
+            <button onclick="closePayModal()" class="btn-link">Cancel</button>
         </div>
     </div>
 

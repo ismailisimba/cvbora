@@ -1,36 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CVBora AI CV Generator - Login</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <title>CVBora – AI-Powered CV Generator</title>
+    <meta name="description" content="Generate beautiful, tailored CVs and cover letters in seconds with AI.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0d1117;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px
+        }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 20px;
+            padding: 48px 40px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6)
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #58a6ff;
+            letter-spacing: -1px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px
+        }
+
+        .logo i {
+            color: #f4c542
+        }
+
+        .tagline {
+            color: #8b949e;
+            font-size: 14px;
+            margin-bottom: 36px;
+            line-height: 1.6
+        }
+
+        .features {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 36px;
+            justify-content: center;
+            flex-wrap: wrap
+        }
+
+        .feat {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: #8b949e;
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .feat i {
+            color: #58a6ff
+        }
+
+        .btn-auth {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-bottom: 12px
+        }
+
+        .btn-google {
+            background: linear-gradient(135deg, #c62b2b, #e53935);
+            color: #fff
+        }
+
+        .btn-google:hover {
+            background: linear-gradient(135deg, #e53935, #ef5350);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(229, 57, 53, 0.4)
+        }
+
+        .btn-linkedin {
+            background: linear-gradient(135deg, #0a66c2, #1e88e5);
+            color: #fff
+        }
+
+        .btn-linkedin:hover {
+            background: linear-gradient(135deg, #1e88e5, #42a5f5);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(30, 136, 229, 0.4)
+        }
+
+        .terms {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #484f58
+        }
+
+        .terms a {
+            color: #58a6ff;
+            text-decoration: none
+        }
+
+        .terms a:hover {
+            text-decoration: underline
+        }
+    </style>
 </head>
-<body class="bg-gray-900 h-screen flex items-center justify-center text-gray-100">
 
-    <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-md w-full text-center border border-gray-700">
-        <h1 class="text-3xl font-extrabold mb-2 text-blue-400">CVBora</h1>
-        <p class="text-gray-400 mb-8">Generate professional CVs instantly.</p>
+<body>
+    <div class="card">
+        <div class="logo"><i class="fas fa-bolt"></i> CVBora</div>
+        <p class="tagline">AI-powered CVs and cover letters.<br>Beautiful, tailored, job-ready in seconds.</p>
 
-        <div class="space-y-4">
-            <a href="https://ismizo-cvbora.hf.space/auth/google" 
-               class="flex items-center justify-center w-full py-3 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium">
-                <i class="fab fa-google mr-2"></i> Continue with Google
-            </a>
-
-            <a href="https://ismizo-cvbora.hf.space/auth/linkedin" 
-               class="flex items-center justify-center w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium">
-                <i class="fab fa-linkedin mr-2"></i> Continue with LinkedIn
-            </a>
+        <div class="features">
+            <div class="feat"><i class="fas fa-magic"></i> AI-Generated</div>
+            <div class="feat"><i class="fas fa-paint-brush"></i> Beautiful HTML Design</div>
+            <div class="feat"><i class="fas fa-file-download"></i> PDF &amp; Word Export</div>
         </div>
-        
-        <p class="mt-8 text-xs text-gray-500">
-            By continuing, you agree to our 
-            <a href="./terms.html" class="text-blue-400 hover:underline">Terms of Service</a>.
-        </p>
+
+        <a href="https://ismizo-cvbora.hf.space/auth/google" class="btn-auth btn-google">
+            <i class="fab fa-google"></i> Continue with Google
+        </a>
+        <a href="https://ismizo-cvbora.hf.space/auth/linkedin" class="btn-auth btn-linkedin">
+            <i class="fab fa-linkedin"></i> Continue with LinkedIn
+        </a>
+
+        <p class="terms">By continuing, you agree to our <a href="./terms.html">Terms of Service</a>.</p>
     </div>
 
     <script>
@@ -49,4 +178,5 @@
         }
     </script>
 </body>
+
 </html>

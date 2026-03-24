@@ -1,138 +1,246 @@
-//const API_URL = "http://localhost:7860/api";
-const API_URL = "https://ismizo-cvbora.hf.space/api"; 
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const API_URL = window.location.hostname === "localhost" ? "http://localhost:8000/api" : "https://ismizo-cvbora.hf.space/api";
+
 const token = localStorage.getItem('cv_token');
+if (!token) window.location.href = 'index.html';
 
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let currentTab = 'upload';
+let generatedData = null;       // { personal_info, cv_html, cover_letter_html }
+let currentPreview = 'cv';
+let builderMessages = [];       // [{role, content}]
+let builderDone = false;
+let resumeText_fromBuilder = '';
 
+// Job desc images tracked separately (FileList can't be mutated)
+let jobDescFiles = [];
 
-if (!token) {
-    window.location.href = 'index.html';
+// ─── TOAST ──────────────────────────────────────────────────────────────────
+function toast(message, type = 'info', duration = 4000) {
+    const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
+    const container = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${message}`;
+    container.appendChild(el);
+    setTimeout(() => {
+        el.style.animation = 'fadeOut 0.3s forwards';
+        setTimeout(() => el.remove(), 300);
+    }, duration);
 }
 
-// 1. Fetch User Profile & Credits
+// ─── PROFILE ────────────────────────────────────────────────────────────────
 async function loadProfile() {
     try {
         const res = await fetch(`${API_URL}/me`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (res.status === 401) { logout(); return; }
         const user = await res.json();
-        
-        const freeLeft = 1 - user.freeGenerationsUsed;
+
+        const freeLeft = Math.max(0, 1 - user.freeGenerationsUsed);
         const paid = user.paidCredits;
-        
-        document.getElementById('creditsDisplay').innerText = 
-            `Free: ${freeLeft} | Paid: ${paid}`;
+        document.getElementById('creditsDisplay').innerHTML =
+            `<i class="fas fa-bolt"></i> Free: ${freeLeft} &nbsp;|&nbsp; Credits: ${paid}`;
+
+        const used = user.storageUsedBytes || 0;
+        const quota = user.storageQuotaBytes || (45 * 1024 * 1024);
+        document.getElementById('storageText').textContent = `${formatBytes(used)} / ${formatBytes(quota)}`;
     } catch (err) {
         console.error("Auth Error", err);
-        logout();
     }
 }
 
-// 2. Upload Resume Logic
-async function uploadResume() {
-    const fileInput = document.getElementById('resumeFile');
-    if (!fileInput.files[0]) return alert("Select a file first!");
-
-    const formData = new FormData();
-    formData.append('resume', fileInput.files[0]);
-
-    const btn = document.querySelector('button[onclick="uploadResume()"]');
-    btn.innerText = "Extracting...";
-    
-    try {
-        const res = await fetch(`${API_URL}/extract-resume`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            document.getElementById('resumeText').value = data.extractedText;
-        } else {
-            alert("Error: " + data.error);
-        }
-    } catch (e) {
-        alert("Upload Failed");
-    } finally {
-        btn.innerText = "Extract Text";
-    }
+function formatBytes(b) {
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    return `${(b / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// 3. Generate CV Logic
-let generatedJsonData = null; // Store data globally to use in download
-let currentTab = 'upload'; // Default tab
-
-// 1. Tab Switching Logic
+// ─── TAB SWITCHING ───────────────────────────────────────────────────────────
 function switchTab(tabName) {
     currentTab = tabName;
-    
-    // Reset Buttons
     ['upload', 'links', 'builder'].forEach(t => {
-        const btn = document.getElementById(`tab-${t}`);
-        const content = document.getElementById(`content-${t}`);
-        
-        if (t === tabName) {
-            btn.classList.remove('bg-gray-700', 'text-gray-300');
-            btn.classList.add('bg-blue-600', 'text-white');
-            content.classList.remove('hidden');
-        } else {
-            btn.classList.add('bg-gray-700', 'text-gray-300');
-            btn.classList.remove('bg-blue-600', 'text-white');
-            content.classList.add('hidden');
-        }
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === tabName);
+        document.getElementById(`content-${t}`).classList.toggle('hidden', t !== tabName);
+    });
+    if (tabName === 'builder' && builderMessages.length === 0) {
+        // Show start button, hide chat input
+    }
+}
+
+// ─── RESUME FILE HANDLING ────────────────────────────────────────────────────
+function handleResumeFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    renderResumePreview(file);
+}
+
+function renderResumePreview(file) {
+    const zone = document.getElementById('resumeDropZone');
+    const preview = document.getElementById('resumePreview');
+    zone.classList.add('has-file');
+
+    const isImage = file.type.startsWith('image/');
+    const sizeFmt = formatBytes(file.size);
+
+    let thumbHtml = '';
+    if (isImage) {
+        const url = URL.createObjectURL(file);
+        thumbHtml = `<img src="${url}" alt="preview">`;
+    } else {
+        const icon = file.type === 'application/pdf' ? 'fa-file-pdf' : 'fa-file-word';
+        const color = file.type === 'application/pdf' ? '#f85149' : '#58a6ff';
+        thumbHtml = `<div class="file-icon" style="color:${color}"><i class="fas ${icon}"></i></div>`;
+    }
+
+    preview.innerHTML = `
+        <div class="resume-thumb">
+            ${thumbHtml}
+            <div class="thumb-info">
+                <div class="file-name">${file.name}</div>
+                <div class="file-meta">${sizeFmt}</div>
+            </div>
+            <button class="thumb-clear" onclick="clearResumeFile(event)" title="Remove">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>`;
+}
+
+function clearResumeFile(e) {
+    e.stopPropagation();
+    const zone = document.getElementById('resumeDropZone');
+    const preview = document.getElementById('resumePreview');
+    zone.classList.remove('has-file');
+    document.getElementById('resumeFile').value = '';
+    preview.innerHTML = `
+        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+        <p class="drop-hint">Click or drag your CV here</p>
+        <p class="drop-sub">PDF, Image, or DOCX</p>`;
+}
+
+// ─── JOB DESC IMAGES ─────────────────────────────────────────────────────────
+function handleJobDescImages(input) {
+    jobDescFiles = Array.from(input.files);
+    renderJobDescPreviews();
+}
+
+function renderJobDescPreviews() {
+    const container = document.getElementById('jobDescPreviews');
+    container.innerHTML = '';
+    jobDescFiles.forEach((file, idx) => {
+        const url = URL.createObjectURL(file);
+        const card = document.createElement('div');
+        card.className = 'thumb-card';
+        card.innerHTML = `
+            <img src="${url}" alt="job post screenshot">
+            <button class="remove-thumb" onclick="removeJobImage(${idx})">×</button>`;
+        container.appendChild(card);
     });
 }
 
-// 2. Helper: Compile Builder Data to Text
-function getBuilderText() {
-    const name = document.getElementById('buildName').value;
-    const role = document.getElementById('buildRole').value;
-    const exp = document.getElementById('buildExp').value;
-    const edu = document.getElementById('buildEdu').value;
-    const skills = document.getElementById('buildSkills').value;
-    
-    if(!name && !role && !exp) return "";
-
-    return `
-    NAME: ${name}
-    CURRENT ROLE: ${role}
-    EXPERIENCE: ${exp}
-    EDUCATION: ${edu}
-    SKILLS: ${skills}
-    `;
+function removeJobImage(idx) {
+    jobDescFiles.splice(idx, 1);
+    renderJobDescPreviews();
 }
 
-// 3. Generate Function (Updated)
+// ─── CONVERSATIONAL BUILDER ──────────────────────────────────────────────────
+async function startBuilderInterview() {
+    builderMessages = [];
+    builderDone = false;
+    resumeText_fromBuilder = '';
+    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('startInterviewBtn').classList.add('hidden');
+    document.getElementById('chatHint').classList.add('hidden');
+    document.getElementById('chatInput').disabled = false;
+    document.getElementById('chatSendBtn').disabled = false;
+
+    // Kick off the first AI message
+    await sendBuilderMessage(null);
+}
+
+async function sendBuilderMessage(userText) {
+    if (builderDone) return;
+
+    const inputEl = document.getElementById('chatInput');
+    const text = userText !== null ? (userText ?? inputEl.value.trim()) : null;
+
+    if (text !== null && text !== undefined) {
+        if (!text) { inputEl.focus(); return; }
+        appendChatMsg(text, 'user');
+        builderMessages.push({ role: 'user', content: text });
+        inputEl.value = '';
+    }
+
+    setBuilderLoading(true);
+
+    try {
+        const res = await fetch(`${API_URL}/builder/message`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ messages: builderMessages })
+        });
+        const data = await res.json();
+
+        appendChatMsg(data.reply, 'ai');
+        builderMessages.push({ role: 'assistant', content: data.reply });
+
+        if (data.done) {
+            builderDone = true;
+            resumeText_fromBuilder = data.resumeText;
+            appendChatMsg('✅ Interview complete! Click **Generate Professional CV** below to create your documents.', 'ai');
+            document.getElementById('chatInput').disabled = true;
+            document.getElementById('chatSendBtn').disabled = true;
+        }
+    } catch (err) {
+        toast('Connection error. Please try again.', 'error');
+    } finally {
+        setBuilderLoading(false);
+    }
+}
+
+function appendChatMsg(text, role) {
+    const win = document.getElementById('chatMessages');
+    const el = document.createElement('div');
+    el.className = `chat-msg ${role}`;
+    // Simple markdown bold support
+    el.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    win.appendChild(el);
+    win.scrollTop = win.scrollHeight;
+}
+
+function setBuilderLoading(loading) {
+    const btn = document.getElementById('chatSendBtn');
+    btn.innerHTML = loading ? '<i class="fas fa-circle-notch fa-spin"></i>' : '<i class="fas fa-paper-plane"></i>';
+}
+
+// ─── GENERATE CV ──────────────────────────────────────────────────────────────
 async function generateCV() {
     const btn = document.getElementById('generateBtn');
-    
-    // Gather Data based on active tab
-    const formData = new FormData();
-    
-    // Add Job Description
+
     const jobText = document.getElementById('jobDesc').value;
-    const jobFiles = document.getElementById('jobDescFiles').files;
-    
-    if (!jobText && jobFiles.length === 0) return alert("Please provide a Job Description.");
-    
+    if (!jobText && jobDescFiles.length === 0) {
+        toast('Please provide a Job Description (text or images).', 'error');
+        return;
+    }
+
+    const formData = new FormData();
     formData.append('jobDescText', jobText);
     formData.append('instructions', document.getElementById('instructions').value);
-    for (let f of jobFiles) formData.append('jobDescImages', f);
+    for (const f of jobDescFiles) formData.append('jobDescImages', f);
 
-    // Add Resume Source
     let hasSource = false;
 
     if (currentTab === 'upload') {
         const file = document.getElementById('resumeFile').files[0];
-        if (file) {
-            formData.append('resumeFiles', file);
-            hasSource = true;
-        }
+        if (file) { formData.append('resumeFiles', file); hasSource = true; }
     } else if (currentTab === 'links') {
         const txt = document.getElementById('rawText').value;
         const li = document.getElementById('linkedin').value;
         const gh = document.getElementById('github').value;
-        
         if (txt || li || gh) {
             formData.append('resumeText', txt);
             formData.append('linkedInUrl', li);
@@ -140,17 +248,21 @@ async function generateCV() {
             hasSource = true;
         }
     } else if (currentTab === 'builder') {
-        const builderText = getBuilderText();
-        if (builderText.trim().length > 10) {
-            formData.append('resumeText', builderText); // Send as text
+        if (builderDone && resumeText_fromBuilder) {
+            formData.append('resumeText', resumeText_fromBuilder);
             hasSource = true;
+        } else {
+            toast('Please complete the interview first, or switch to another input tab.', 'error');
+            return;
         }
     }
 
-    if (!hasSource) return alert("Please provide candidate data (File, Links, or Builder).");
+    if (!hasSource) {
+        toast('Please provide candidate data (File, Links, or complete the Interview).', 'error');
+        return;
+    }
 
-    // UI Loading State
-    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Generating…';
     btn.disabled = true;
 
     try {
@@ -159,398 +271,281 @@ async function generateCV() {
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
-        
-        const data = await res.json();
 
         if (res.status === 402) {
+            btn.innerHTML = '<i class="fas fa-magic"></i> Generate Professional CV';
+            btn.disabled = false;
             document.getElementById('paymentModal').classList.remove('hidden');
             return;
         }
-        
+
+        const data = await res.json();
+
         if (data.success) {
-            generatedJsonData = data.data;
-            renderHTMLPreview(data.data);
+            generatedData = data.data;
+            renderPreviews();
             document.getElementById('placeholder').classList.add('hidden');
             document.getElementById('resultContainer').classList.remove('hidden');
-            loadProfile(); // Refresh credits
+            loadProfile();
+            toast('CV generated successfully!', 'success');
         } else {
-            alert(data.error || "Generation failed.");
+            toast(data.error || 'Generation failed. Please try again.', 'error');
         }
-
     } catch (e) {
         console.error(e);
-        alert("Server Error");
+        toast('Server error. Please try again.', 'error');
     } finally {
-        btn.innerHTML = '<i class="fas fa-magic mr-2"></i> Generate Professional CV';
+        btn.innerHTML = '<i class="fas fa-magic"></i> Generate Professional CV';
         btn.disabled = false;
     }
 }
 
-// Render the HTML Preview
-
-/*
-
-function renderHTMLPreview(data) {
-    const div = document.getElementById('previewArea');
-    let html = `
-        <h1 class="text-3xl font-bold text-gray-800 border-b-2 border-gray-800 pb-2 mb-4 uppercase">${data.personal_info.name}</h1>
-        <p class="text-sm text-center mb-6">
-            ${data.personal_info.email} | ${data.personal_info.phone} | ${data.personal_info.location} <br>
-            <a href="${data.personal_info.linkedin}" class="text-blue-600">LinkedIn Profile</a>
-        </p>
-
-        <h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Professional Summary</h2>
-        <p class="text-sm mb-4">${data.summary}</p>
-
-        <h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Skills</h2>
-        <div class="flex flex-wrap gap-2 mb-4">
-            ${data.skills.map(s => `<span class="bg-gray-100 px-2 py-1 text-xs rounded">${s}</span>`).join('')}
-        </div>
-
-        <h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Experience</h2>
-    `;
-
-    data.experience.forEach(job => {
-        html += `
-            <div class="mb-4">
-                <div class="flex justify-between font-bold text-sm">
-                    <span>${job.role} - ${job.company}</span>
-                    <span>${job.dates}</span>
-                </div>
-                <ul class="list-disc list-outside ml-4 text-sm mt-1">
-                    ${job.points.map(p => `<li>${p}</li>`).join('')}
-                </ul>
-            </div>
-        `;
-    });
-
-    html += `<h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Education</h2>`;
-    data.education.forEach(edu => {
-        html += `
-            <div class="flex justify-between text-sm mb-1">
-                <span class="font-bold">${edu.degree}, ${edu.school}</span>
-                <span>${edu.dates}</span>
-            </div>
-        `;
-    });
-    
-    // Append Cover Letter
-    html += `<br><hr class="my-8 border-dashed border-gray-400"><br>`;
-    html += `<h2 class="text-lg font-bold uppercase mb-4">Cover Letter</h2>`;
-    html += `<div class="whitespace-pre-wrap text-sm">${data.cover_letter}</div>`;
-
-    div.innerHTML = html;
-} 
-
-*/
-
-function renderHTMLPreview(data) {
-    const div = document.getElementById('previewArea');
-    const cl = data.cover_letter;
-
-    let html = `
-        <h1 class="text-3xl font-bold text-gray-800 border-b-2 border-gray-800 pb-2 mb-4 uppercase">${data.personal_info.name}</h1>
-        <p class="text-sm text-center mb-6">
-            ${data.personal_info.email} | ${data.personal_info.phone} | ${data.personal_info.location} <br>
-            <a href="${'https://'+data.personal_info.linkedin}" class="text-blue-600">LinkedIn Profile</a>
-        </p>
-
-        <h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Professional Summary</h2>
-        <p class="text-sm mb-4">${data.summary}</p>
-
-        <h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Skills</h2>
-        <div class="flex flex-wrap gap-2 mb-4">
-            ${data.skills.map(s => `<span class="bg-gray-100 px-2 py-1 text-xs rounded">${s}</span>`).join('')}
-        </div>
-
-        <h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Experience</h2>
-    `;
-
-    data.experience.forEach(job => {
-        html += `
-            <div class="mb-4">
-                <div class="flex justify-between font-bold text-sm">
-                    <span>${job.role} - ${job.company}</span>
-                    <span>${job.dates}</span>
-                </div>
-                <ul class="list-disc list-outside ml-4 text-sm mt-1">
-                    ${job.points.map(p => `<li>${p}</li>`).join('')}
-                </ul>
-            </div>
-        `;
-    });
-
-    html += `<h2 class="text-lg font-bold uppercase border-b border-gray-300 mb-2 mt-4">Education</h2>`;
-    data.education.forEach(edu => {
-        html += `
-            <div class="flex justify-between text-sm mb-1">
-                <span class="font-bold">${edu.degree}, ${edu.school}</span>
-                <span>${edu.dates}</span>
-            </div>
-        `;
-    });
-    
-    // Better Formatted Cover Letter Section
-    html += `
-        <br><hr class="my-8 border-dashed border-gray-400"><br>
-        <div class="p-8 bg-white shadow-sm border border-gray-100 text-sm leading-relaxed text-gray-800">
-            <div class="mb-6">
-                <p><strong>${cl.applicant_full_name}</strong></p>
-                <p>${cl.applicant_email} | ${cl.applicant_phone}</p>
-                <p>${cl.today_date}</p>
-            </div>
-            <div class="mb-6">
-                <p><strong>To: ${cl.job_poster_full_name}</strong></p>
-                <p>${cl.job_poster_position} at ${cl.job_poster_company}</p>
-            </div>
-            <p class="font-bold mb-4">${cl.letter_title}</p>
-            <p class="mb-4">${cl.greeting}</p>
-            <div class="whitespace-pre-wrap mb-6">${cl.body}</div>
-            <p>${cl.closing}</p>
-        </div>
-    `;
-
-    div.innerHTML = html;
+// ─── PREVIEW ─────────────────────────────────────────────────────────────────
+function renderPreviews() {
+    if (!generatedData) return;
+    setIframeContent('cvFrame', generatedData.cv_html);
+    setIframeContent('clFrame', generatedData.cover_letter_html);
 }
 
-
-/*
-function downloadWord() {
-    if (!generatedJsonData) return alert("No CV generated yet.");
-    
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
-    const data = generatedJsonData;
-
-    // Helper for Experience Section
-    const experienceParagraphs = [];
-    data.experience.forEach(job => {
-        experienceParagraphs.push(
-            new Paragraph({
-                children: [
-                    new TextRun({ text: job.role, bold: true, size: 24 }),
-                    new TextRun({ text: ` at ${job.company}`, bold: true, size: 24 }),
-                    new TextRun({ text: `   ${job.dates}`, italics: true, size: 20 }),
-                ],
-                spacing: { before: 200 },
-            })
-        );
-        job.points.forEach(point => {
-            experienceParagraphs.push(
-                new Paragraph({
-                    text: point,
-                    bullet: { level: 0 },
-                })
-            );
-        });
-    });
-
-    const doc = new Document({
-        sections: [{
-            properties: {},
-            children: [
-                // Name
-                new Paragraph({
-                    text: data.personal_info.name,
-                    heading: HeadingLevel.TITLE,
-                    alignment: AlignmentType.CENTER,
-                }),
-                // Contact
-                new Paragraph({
-                    text: `${data.personal_info.email} | ${data.personal_info.phone} | ${data.personal_info.location}`,
-                    alignment: AlignmentType.CENTER,
-                }),
-                new Paragraph({ text: "" }), // Spacing
-
-                // Summary
-                new Paragraph({ text: "PROFESSIONAL SUMMARY", heading: HeadingLevel.HEADING_2 }),
-                new Paragraph({ text: data.summary }),
-
-                // Skills
-                new Paragraph({ text: "SKILLS", heading: HeadingLevel.HEADING_2 }),
-                new Paragraph({ text: data.skills.join(", ") }),
-
-                // Experience
-                new Paragraph({ text: "EXPERIENCE", heading: HeadingLevel.HEADING_2 }),
-                ...experienceParagraphs,
-
-                // Education
-                new Paragraph({ text: "EDUCATION", heading: HeadingLevel.HEADING_2 }),
-                ...data.education.map(edu => new Paragraph({
-                    text: `${edu.degree}, ${edu.school} (${edu.dates})`,
-                    bullet: { level: 0 }
-                })),
-                
-                // Page Break for Cover Letter
-                new Paragraph({ pageBreakBefore: true, text: "COVER LETTER", heading: HeadingLevel.HEADING_1 }),
-                new Paragraph({ text: data.cover_letter })
-            ],
-        }],
-    });
-
-    Packer.toBlob(doc).then(blob => {
-        saveAs(blob, `${data.personal_info.name.replace(" ", "_")}_CV.docx`);
-    });
+function setIframeContent(frameId, html) {
+    const frame = document.getElementById(frameId);
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
 }
 
-*/
-// Function 1: Download CV ONLY
-async function downloadCV() {
-    if (!generatedJsonData) return alert("No CV generated yet.");
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
-    const data = generatedJsonData;
-
-    const experienceParagraphs = [];
-    data.experience.forEach(job => {
-        experienceParagraphs.push(new Paragraph({
-            children: [
-                new TextRun({ text: job.role, bold: true, size: 24 }),
-                new TextRun({ text: ` at ${job.company}`, bold: true, size: 24 }),
-                new TextRun({ text: `   ${job.dates}`, italics: true, size: 20 }),
-            ],
-            spacing: { before: 200 },
-        }));
-        job.points.forEach(p => experienceParagraphs.push(new Paragraph({ text: p, bullet: { level: 0 } })));
-    });
-
-    const doc = new Document({
-        sections: [{
-            children: [
-                new Paragraph({ text: data.personal_info.name, heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER }),
-                new Paragraph({ text: `${data.personal_info.email} | ${data.personal_info.phone}`, alignment: AlignmentType.CENTER }),
-                new Paragraph({ text: "PROFESSIONAL SUMMARY", heading: HeadingLevel.HEADING_2, spacing: { before: 400 } }),
-                new Paragraph({ text: data.summary }),
-                new Paragraph({ text: "SKILLS", heading: HeadingLevel.HEADING_2, spacing: { before: 400 } }),
-                new Paragraph({ text: data.skills.join(", ") }),
-                new Paragraph({ text: "EXPERIENCE", heading: HeadingLevel.HEADING_2, spacing: { before: 400 } }),
-                ...experienceParagraphs,
-                new Paragraph({ text: "EDUCATION", heading: HeadingLevel.HEADING_2, spacing: { before: 400 } }),
-                ...data.education.map(edu => new Paragraph({ text: `${edu.degree}, ${edu.school} (${edu.dates})`, bullet: { level: 0 } }))
-            ],
-        }],
-    });
-
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `${data.personal_info.name.replace(/\s/g, "_")}_CV.docx`);
+function switchPreview(type) {
+    currentPreview = type;
+    document.getElementById('cvFrame').classList.toggle('hidden', type !== 'cv');
+    document.getElementById('clFrame').classList.toggle('hidden', type !== 'cover_letter');
+    document.getElementById('prev-cv').classList.toggle('active', type === 'cv');
+    document.getElementById('prev-cl').classList.toggle('active', type === 'cover_letter');
 }
 
-// Function 2: Download Cover Letter ONLY
-async function downloadCoverLetter() {
-    if (!generatedJsonData) return alert("No CV generated yet.");
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
-    const cl = generatedJsonData.cover_letter;
+// ─── DOWNLOADS ────────────────────────────────────────────────────────────────
+async function downloadFile(docType, format) {
+    if (!generatedData) { toast('No CV generated yet.', 'error'); return; }
 
-    const doc = new Document({
-        sections: [{
-            children: [
-                new Paragraph({ children: [new TextRun({ text: cl.applicant_full_name, bold: true, size: 28 })] }),
-                new Paragraph({ text: cl.applicant_email }),
-                new Paragraph({ text: cl.applicant_phone, spacing: { after: 400 } }),
-                
-                new Paragraph({ text: cl.today_date, spacing: { after: 400 } }),
+    const html = docType === 'cv' ? generatedData.cv_html : generatedData.cover_letter_html;
+    const name = generatedData.personal_info?.name?.replace(/\s+/g, '_') || 'document';
+    const filename = docType === 'cv' ? `${name}_CV` : `${name}_CoverLetter`;
 
-                new Paragraph({ children: [new TextRun({ text: `To: ${cl.job_poster_full_name}`, bold: true })] }),
-                new Paragraph({ text: `${cl.job_poster_position}` }),
-                new Paragraph({ text: `${cl.job_poster_company}`, spacing: { after: 400 } }),
+    const endpoint = format === 'pdf' ? '/download-pdf' : '/download-word';
+    const ext = format === 'pdf' ? 'pdf' : 'docx';
+    const mimeType = format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-                new Paragraph({ children: [new TextRun({ text: cl.letter_title, bold: true, underline: {} })], spacing: { after: 400 } }),
-                
-                new Paragraph({ text: cl.greeting, spacing: { after: 200 } }),
-                
-                // Splitting body by double newlines to create proper Word paragraphs
-                ...cl.body.split('\n\n').map(para => new Paragraph({ text: para, spacing: { after: 200 } })),
-
-                new Paragraph({ text: cl.closing, spacing: { before: 400 } }),
-            ],
-        }],
-    });
-
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `${cl.applicant_full_name.replace(/\s/g, "_")}_Cover_Letter.docx`);
-}
-
-
-// Assumes 'cvData' is the JSON object you got from the /api/generate-cv endpoint
-const downloadPdf = async (type = 'cv') => {
-  const response = await fetch(`${API_URL}/download-pdf`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}` 
-    },
-    body: JSON.stringify({
-      type: type, // or 'cover_letter'
-      data: generatedJsonData 
-    })
-  });
-
-  if (response.ok) {
-    // Convert response to blob and trigger download
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const filename = type === 'cv' ? `${generatedJsonData.personal_info.name.replace(/\s/g, "_")}_CV.pdf` : `${generatedJsonData.cover_letter.applicant_full_name.replace(/\s/g, "_")}_Cover_Letter.pdf`;
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-};
-
-
-
-
-// 4. Payment Logic
-async function pay() {
-    const phone = document.getElementById('payPhone').value;
-    if (!phone) return alert("Enter phone number");
+    toast(`Preparing ${format.toUpperCase()} download…`, 'info', 2500);
 
     try {
-        //  /dev/add-credits
-        // /pay
-        const res = await fetch(`${API_URL}/pay`, {
+        const res = await fetch(`${API_URL}${endpoint}`, {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ phoneNumber: phone, amount: 1000 })
+            body: JSON.stringify({ html, filename })
         });
-        const data = await res.json();
-        alert(data.message);
-        closeModal();
-    } catch (e) {
-        alert("Payment Failed");
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Download failed');
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(new Blob([blob], { type: mimeType }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast('Download started!', 'success');
+    } catch (err) {
+        console.error(err);
+        toast(err.message || 'Download failed. Please try again.', 'error');
     }
 }
 
-function closeModal() {
+// ─── MY FILES MODAL ───────────────────────────────────────────────────────────
+async function openFilesModal() {
+    document.getElementById('filesModal').classList.remove('hidden');
+    await loadFiles();
+}
+
+function closeFilesModal(event) {
+    if (!event || event.target.id === 'filesModal') {
+        document.getElementById('filesModal').classList.add('hidden');
+    }
+}
+
+async function loadFiles() {
+    const list = document.getElementById('filesList');
+    list.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading files…</div>';
+
+    try {
+        const res = await fetch(`${API_URL}/files`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        // Update storage bar
+        const usedPct = Math.min(100, (data.storageUsedBytes / data.storageQuotaBytes) * 100);
+        const fill = document.getElementById('storageBarFill');
+        fill.style.width = `${usedPct}%`;
+        if (usedPct > 80) fill.classList.add('warn');
+        else fill.classList.remove('warn');
+        document.getElementById('storageBarLabel').textContent =
+            `${formatBytes(data.storageUsedBytes)} / ${formatBytes(data.storageQuotaBytes)}`;
+
+        if (!data.files || data.files.length === 0) {
+            list.innerHTML = '<div class="empty-state"><i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:12px"></i>No files saved yet.<br>Generate a CV to see your files here.</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        for (const file of data.files) {
+            const isUpload = file.type === 'upload';
+            const ext = file.name.split('.').pop().toLowerCase();
+            const iconMap = { pdf: 'fa-file-pdf', html: 'fa-file-code', png: 'fa-file-image', jpg: 'fa-file-image', jpeg: 'fa-file-image', docx: 'fa-file-word' };
+            const icon = iconMap[ext] || 'fa-file';
+            const date = new Date(file.lastModified).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.innerHTML = `
+                <div class="file-item-icon ${isUpload ? 'icon-upload' : 'icon-gen'}">
+                    <i class="fas ${icon}"></i>
+                </div>
+                <div class="file-item-info">
+                    <div class="file-item-name" title="${file.name}">${file.name}</div>
+                    <div class="file-item-meta">${formatBytes(file.size)} &middot; ${date}</div>
+                </div>
+                <span class="file-badge ${isUpload ? 'badge-upload' : 'badge-gen'}">${isUpload ? 'Upload' : 'Generated'}</span>
+                <button class="btn-file-action" onclick="downloadFileFromR2('${encodeURIComponent(file.key)}')">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="btn-file-action del" onclick="deleteUserFile('${encodeURIComponent(file.key)}', this)">
+                    <i class="fas fa-trash"></i>
+                </button>`;
+            list.appendChild(item);
+        }
+    } catch (err) {
+        list.innerHTML = '<div class="empty-state">Failed to load files. Please try again.</div>';
+        console.error(err);
+    }
+}
+
+async function downloadFileFromR2(encodedKey) {
+    try {
+        const key = decodeURIComponent(encodedKey);
+        const res = await fetch(`${API_URL}/files/download-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ key })
+        });
+        const data = await res.json();
+        if (data.url) {
+            window.open(data.url, '_blank');
+        } else {
+            toast('Could not get download URL.', 'error');
+        }
+    } catch {
+        toast('Download failed.', 'error');
+    }
+}
+
+async function deleteUserFile(encodedKey, btn) {
+    if (!confirm('Delete this file permanently?')) return;
+    const key = decodeURIComponent(encodedKey);
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+
+    try {
+        const res = await fetch(`${API_URL}/files`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ key })
+        });
+        const data = await res.json();
+        if (data.success) {
+            toast('File deleted.', 'success');
+            await loadFiles();
+            await loadProfile();
+        } else {
+            toast(data.error || 'Delete failed.', 'error');
+        }
+    } catch {
+        toast('Delete failed.', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ─── PAYMENT ──────────────────────────────────────────────────────────────────
+async function pay() {
+    const phone = document.getElementById('payPhone').value;
+    if (!phone) { toast('Enter your phone number.', 'error'); return; }
+
+    try {
+        const res = await fetch(`${API_URL}/pay`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ phoneNumber: phone, amount: 908 })
+        });
+        const data = await res.json();
+        toast(data.message || 'Payment initiated!', data.success ? 'success' : 'error');
+        if (data.success) closePayModal();
+    } catch {
+        toast('Payment failed. Please try again.', 'error');
+    }
+}
+
+function closePayModal() {
     document.getElementById('paymentModal').classList.add('hidden');
 }
 
+// ─── LOGOUT ───────────────────────────────────────────────────────────────────
 function logout() {
     localStorage.removeItem('cv_token');
     window.location.href = 'index.html';
 }
 
-function printCV() {
-    const printContent = document.getElementById('cvContent').innerHTML;
-    const originalContent = document.body.innerHTML;
-    document.body.innerHTML = printContent;
-    window.print();
-    document.body.innerHTML = originalContent;
-    window.location.reload(); // Reload to restore event listeners
-}
+// ─── DRAG & DROP SUPPORT ──────────────────────────────────────────────────────
+(function setupDragDrop() {
+    const zone = document.getElementById('resumeDropZone');
+    if (!zone) return;
 
+    zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.style.borderColor = '#388bfd';
+        zone.style.background = '#0d1f35';
+    });
+    zone.addEventListener('dragleave', () => {
+        zone.style.borderColor = '';
+        zone.style.background = '';
+    });
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.style.borderColor = '';
+        zone.style.background = '';
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            const input = document.getElementById('resumeFile');
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            input.files = dt.files;
+            renderResumePreview(file);
+        }
+    });
+})();
 
-function updateFileName(input) {
-    const display = document.getElementById('fileNameDisplay');
-    if(input.files && input.files[0]) {
-        display.innerText = input.files[0].name;
-        display.classList.add('text-blue-400');
-    }
-}
-
-
-// Initialize
+// ─── INIT ─────────────────────────────────────────────────────────────────────
 loadProfile();
