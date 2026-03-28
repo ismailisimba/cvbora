@@ -1,5 +1,5 @@
 // ─── CONFIG ────────────────────────────────────────────────────────────────
-const API_URL = window.location.hostname === "localhost" ? "http://localhost:8000/api" : "https://ismizo-cvbora.hf.space/api";
+const API_URL = window.location.hostname === "localhost" ? "http://localhost:7860/api" : "https://ismizo-cvbora.hf.space/api";
 
 const token = localStorage.getItem('cv_token');
 if (!token) window.location.href = 'index.html';
@@ -38,7 +38,7 @@ async function loadProfile() {
         if (res.status === 401) { logout(); return; }
         const user = await res.json();
 
-        const freeLeft = Math.max(0, 1 - user.freeGenerationsUsed);
+        const freeLeft = Math.max(0, 3 - user.freeGenerationsUsed);
         const paid = user.paidCredits;
         document.getElementById('creditsDisplay').innerHTML =
             `<i class="fas fa-bolt"></i> Free: ${freeLeft} &nbsp;|&nbsp; Credits: ${paid}`;
@@ -48,6 +48,26 @@ async function loadProfile() {
         document.getElementById('storageText').textContent = `${formatBytes(used)} / ${formatBytes(quota)}`;
     } catch (err) {
         console.error("Auth Error", err);
+    }
+}
+
+// ─── MOBILE PANEL SWITCHER ────────────────────────────────────────────────────
+function switchMobilePanel(panel) {
+    const left  = document.getElementById('panelLeft');
+    const right = document.getElementById('panelRight');
+    const tabIn = document.getElementById('mobileTabInput');
+    const tabPr = document.getElementById('mobileTabPreview');
+
+    if (panel === 'input') {
+        left.classList.remove('mobile-hidden');
+        right.classList.add('mobile-hidden');
+        tabIn.classList.add('active');
+        tabPr.classList.remove('active');
+    } else {
+        left.classList.add('mobile-hidden');
+        right.classList.remove('mobile-hidden');
+        tabIn.classList.remove('active');
+        tabPr.classList.add('active');
     }
 }
 
@@ -286,6 +306,8 @@ async function generateCV() {
             renderPreviews();
             document.getElementById('placeholder').classList.add('hidden');
             document.getElementById('resultContainer').classList.remove('hidden');
+            // On mobile: automatically switch to Preview panel
+            if (window.innerWidth <= 768) switchMobilePanel('preview');
             loadProfile();
             toast('CV generated successfully!', 'success');
         } else {
@@ -413,6 +435,8 @@ async function loadFiles() {
             const iconMap = { pdf: 'fa-file-pdf', html: 'fa-file-code', png: 'fa-file-image', jpg: 'fa-file-image', jpeg: 'fa-file-image', docx: 'fa-file-word' };
             const icon = iconMap[ext] || 'fa-file';
             const date = new Date(file.lastModified).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const isHtml = ext === 'html';
+            const encodedKey = encodeURIComponent(file.key);
 
             const item = document.createElement('div');
             item.className = 'file-item';
@@ -425,17 +449,73 @@ async function loadFiles() {
                     <div class="file-item-meta">${formatBytes(file.size)} &middot; ${date}</div>
                 </div>
                 <span class="file-badge ${isUpload ? 'badge-upload' : 'badge-gen'}">${isUpload ? 'Upload' : 'Generated'}</span>
-                <button class="btn-file-action" onclick="downloadFileFromR2('${encodeURIComponent(file.key)}')">
-                    <i class="fas fa-download"></i>
-                </button>
-                <button class="btn-file-action del" onclick="deleteUserFile('${encodeURIComponent(file.key)}', this)">
-                    <i class="fas fa-trash"></i>
-                </button>`;
+                <div class="file-item-actions">
+                    ${isHtml ? `
+                    <button class="btn-file-action pdf" title="Download as PDF" onclick="convertSavedFile('${encodedKey}', 'pdf', this)">
+                        <i class="fas fa-file-pdf"></i>
+                    </button>
+                    <button class="btn-file-action word" title="Download as Word" onclick="convertSavedFile('${encodedKey}', 'word', this)">
+                        <i class="fas fa-file-word"></i>
+                    </button>
+                    ` : `
+                    <button class="btn-file-action" title="Download" onclick="downloadFileFromR2('${encodedKey}')">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    `}
+                    <button class="btn-file-action del" title="Delete" onclick="deleteUserFile('${encodedKey}', this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>`;
             list.appendChild(item);
         }
     } catch (err) {
         list.innerHTML = '<div class="empty-state">Failed to load files. Please try again.</div>';
         console.error(err);
+    }
+}
+
+async function convertSavedFile(encodedKey, format, btn) {
+    const key = decodeURIComponent(encodedKey);
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+
+    const ext = format === 'pdf' ? 'pdf' : 'docx';
+    const mimeType = format === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+    toast(`Converting to ${format.toUpperCase()}…`, 'info', 3000);
+
+    try {
+        const res = await fetch(`${API_URL}/convert-saved`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ key, format })
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Conversion failed');
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(new Blob([blob], { type: mimeType }));
+        const a = document.createElement('a');
+        const baseName = key.split('/').pop().replace(/\.html$/i, '');
+        a.href = url;
+        a.download = `${baseName}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast('Download started!', 'success');
+    } catch (err) {
+        console.error(err);
+        toast(err.message || 'Conversion failed. Please try again.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
     }
 }
 
