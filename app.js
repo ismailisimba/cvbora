@@ -569,7 +569,7 @@ async function deleteUserFile(encodedKey, btn) {
 // ─── PAYMENT ──────────────────────────────────────────────────────────────────
 async function pay() {
     const phone = document.getElementById('payPhone').value;
-    if (!phone) { toast('Enter your phone number.', 'error'); return; }
+    if (!phone) { toast('Enter your phone number to buy 3 credits for 1000 TZS.', 'error'); return; }
 
     try {
         const res = await fetch(`${API_URL}/pay`, {
