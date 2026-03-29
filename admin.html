@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVBora Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-nav { background: #1a0b2e; border-bottom: 2px solid #8a2be2; padding: 15px 30px; display: flex; align-items: center; justify-content: space-between; }
+        .admin-nav .brand { color: white;     color: #bf80ff; font-weight: 700; font-size: 20px; }
+        .admin-content { padding: 30px; max-width: 1200px; margin: 0 auto; color: white; }
+        .payment-card { background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: start; gap: 20px; }
+        .payment-img img { max-width: 300px; border-radius: 8px; cursor: pointer; }
+        .payment-info h4 { margin: 0 0 10px 0; color: #50fa7b; }
+        .user-search { margin-bottom: 20px; display: flex; gap: 10px; }
+        .user-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .user-table th, .user-table td { text-align: left; padding: 12px; border-bottom: 1px solid #334155; }
+        .user-table th { color: #a8b2d1; }
+        .btn-green { background: #50fa7b; color: #111; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        .btn-red { background: #ff5555; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        .btn-outline { background: transparent; color: white; border: 1px solid #ff5555; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    </style>
+</head>
+<body style="background: #0d1f35;">
+
+    <nav class="admin-nav">
+        <div class="brand"><i class="fas fa-shield-alt"></i> CVBora Admin</div>
+        <div>
+            <button class="btn-icon" onclick="window.close()" title="Return to App">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </nav>
+
+    <div class="admin-content">
+        <div class="tab-bar" style="margin-bottom: 30px; border-bottom: 1px solid #334155;">
+            <button onclick="switchAdminTab('payments')" id="tab-payments" class="tab-btn active"><i class="fas fa-coins"></i> Pending M-Pesa</button>
+            <button onclick="switchAdminTab('users')" id="tab-users" class="tab-btn"><i class="fas fa-users"></i> User Management</button>
+        </div>
+
+        <div id="content-payments" class="tab-content">
+            <h2>Pending M-Pesa Payments</h2>
+            <div id="paymentsList">
+                <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+
+        <div id="content-users" class="tab-content hidden">
+            <h2>User Management</h2>
+            <div class="user-search">
+                <input type="text" id="userQuery" class="input-field" placeholder="Search by email..." style="max-width: 400px;" onkeydown="if(event.key==='Enter')searchUsers()">
+                <button onclick="searchUsers()" class="btn-generate" style="max-width: 150px;"><i class="fas fa-search"></i> Search</button>
+            </div>
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Credits</th>
+                        <th>Free Used</th>
+                        <th>Banned?</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    <tr><td colspan="5" class="center-text">Enter an email to search</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imgModal" class="modal-overlay hidden" onclick="this.classList.add('hidden')">
+        <img id="imgModalSrc" src="" style="max-width: 90%; max-height: 90%; margin: 5% auto; display: block; border-radius: 8px;">
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

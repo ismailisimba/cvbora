@@ -43,6 +43,11 @@ async function loadProfile() {
         document.getElementById('creditsDisplay').innerHTML =
             `<i class="fas fa-bolt"></i> Free: ${freeLeft} &nbsp;|&nbsp; Credits: ${paid}`;
 
+        if (user.isAdmin) {
+            const adminBtn = document.getElementById('adminBtn');
+            if (adminBtn) adminBtn.style.display = 'inline-block';
+        }
+
         const used = user.storageUsedBytes || 0;
         const quota = user.storageQuotaBytes || (45 * 1024 * 1024);
         document.getElementById('storageText').textContent = `${formatBytes(used)} / ${formatBytes(quota)}`;
@@ -354,10 +359,24 @@ async function downloadFile(docType, format) {
     const filename = docType === 'cv' ? `${name}_CV` : `${name}_CoverLetter`;
 
     const endpoint = format === 'pdf' ? '/download-pdf' : '/download-word';
-    const ext = format === 'pdf' ? 'pdf' : 'docx';
+    const ext = format === 'pdf' ? 'pdf' : (format === 'html' ? 'html' : 'docx');
     const mimeType = format === 'pdf'
         ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        : (format === 'html' ? 'text/html' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+    if (format === 'html') {
+        const blob = new Blob([html], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast('HTML Downloaded successfully!', 'success');
+        return;
+    }
 
     toast(`Preparing ${format.toUpperCase()} download…`, 'info', 2500);
 
@@ -451,6 +470,9 @@ async function loadFiles() {
                 <span class="file-badge ${isUpload ? 'badge-upload' : 'badge-gen'}">${isUpload ? 'Upload' : 'Generated'}</span>
                 <div class="file-item-actions">
                     ${isHtml ? `
+                    <button class="btn-file-action html" title="Download HTML" onclick="downloadFileFromR2('${encodedKey}')">
+                        <i class="fas fa-file-code"></i>
+                    </button>
                     <button class="btn-file-action pdf" title="Download as PDF" onclick="convertSavedFile('${encodedKey}', 'pdf', this)">
                         <i class="fas fa-file-pdf"></i>
                     </button>
@@ -567,6 +589,49 @@ async function deleteUserFile(encodedKey, btn) {
 }
 
 // ─── PAYMENT ──────────────────────────────────────────────────────────────────
+async function submitManualPayment() {
+    const txId = document.getElementById('mpesaTxId').value.trim();
+    const fileInput = document.getElementById('mpesaFile');
+    const file = fileInput.files[0];
+
+    if (!txId && !file) {
+        toast('Please upload a screenshot or enter a Transaction ID.', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    if (txId) formData.append('transactionId', txId);
+    if (file) formData.append('screenshot', file);
+
+    const btn = document.getElementById('btnSubmitManual');
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting…';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_URL}/pay/manual`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            toast(data.message || 'Payment submitted successfully!', 'success');
+            closePayModal();
+            document.getElementById('mpesaTxId').value = '';
+            fileInput.value = '';
+            document.getElementById('mpesaFileName').textContent = '';
+        } else {
+            toast(data.error || 'Submission failed.', 'error');
+        }
+    } catch {
+        toast('Failed to submit. Check your connection.', 'error');
+    } finally {
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
 async function pay() {
     const phone = document.getElementById('payPhone').value;
     if (!phone) { toast('Enter your phone number to buy 3 credits for 1000 TZS.', 'error'); return; }
