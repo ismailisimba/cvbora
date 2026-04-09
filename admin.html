@@ -5,77 +5,398 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CVBora Admin Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
     <style>
-        .admin-nav { background: #1a0b2e; border-bottom: 2px solid #8a2be2; padding: 15px 30px; display: flex; align-items: center; justify-content: space-between; }
-        .admin-nav .brand { color: white;     color: #bf80ff; font-weight: 700; font-size: 20px; }
-        .admin-content { padding: 30px; max-width: 1200px; margin: 0 auto; color: white; }
-        .payment-card { background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: start; gap: 20px; }
-        .payment-img img { max-width: 300px; border-radius: 8px; cursor: pointer; }
-        .payment-info h4 { margin: 0 0 10px 0; color: #50fa7b; }
-        .user-search { margin-bottom: 20px; display: flex; gap: 10px; }
-        .user-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .user-table th, .user-table td { text-align: left; padding: 12px; border-bottom: 1px solid #334155; }
-        .user-table th { color: #a8b2d1; }
-        .btn-green { background: #50fa7b; color: #111; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 600; }
-        .btn-red { background: #ff5555; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 600; }
-        .btn-outline { background: transparent; color: white; border: 1px solid #ff5555; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        /* ── Admin Shell ── */
+        body { background: #080e1a; overflow: auto; height: auto; }
+
+        .admin-shell {
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .admin-nav {
+            background: #0d1117;
+            border-bottom: 1px solid #21262d;
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .admin-brand {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 700; font-size: 16px; color: #c9d1d9;
+        }
+        .admin-brand-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: linear-gradient(135deg, #388bfd, #bb86fc);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; color: #fff;
+        }
+        .admin-brand span { color: #bb86fc; }
+
+        .admin-content {
+            flex: 1;
+            padding: 28px 24px;
+            max-width: 1300px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* ── Stats Bar ── */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 12px;
+            padding: 16px 18px;
+        }
+        .stat-card .stat-label {
+            font-size: 11px; color: #8b949e; font-weight: 500;
+            text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;
+        }
+        .stat-card .stat-value {
+            font-size: 24px; font-weight: 700; color: #c9d1d9;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .stat-card .stat-sub { font-size: 11px; color: #484f58; margin-top: 3px; }
+        .stat-card.blue  { border-color: #1f4e79; }
+        .stat-card.green { border-color: #1a4d2e; }
+        .stat-card.purple{ border-color: #3d1f79; }
+        .stat-card.gold  { border-color: #5a4000; }
+
+        /* ── Tab Nav ── */
+        .admin-tabs {
+            display: flex; gap: 4px;
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 12px;
+            padding: 5px;
+            margin-bottom: 24px;
+            width: fit-content;
+        }
+        .admin-tab {
+            padding: 8px 18px;
+            border: none; background: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px; font-weight: 500;
+            color: #8b949e; border-radius: 8px;
+            cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .admin-tab:hover { background: #161b22; color: #c9d1d9; }
+        .admin-tab.active { background: #161b22; color: #c9d1d9; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+        .admin-tab.active.payments { color: #f4c542; }
+        .admin-tab.active.users    { color: #58a6ff; }
+        .admin-tab.active.logs     { color: #3fb950; }
+
+        /* ── Panels ── */
+        .admin-panel { display: none; }
+        .admin-panel.active { display: block; }
+
+        /* ── Section title ── */
+        .section-head {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 18px; flex-wrap: wrap;
+        }
+        .section-head h2 {
+            font-size: 16px; font-weight: 600; color: #c9d1d9; margin: 0;
+        }
+        .section-head .count-badge {
+            font-size: 11px; background: #21262d; color: #8b949e;
+            padding: 2px 8px; border-radius: 20px; border: 1px solid #30363d;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Payment Cards ── */
+        .payment-card {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 14px;
+            display: flex; align-items: flex-start; gap: 20px;
+            transition: border-color 0.2s;
+        }
+        .payment-card:hover { border-color: #30363d; }
+        .payment-img img {
+            max-width: 260px; border-radius: 8px; cursor: pointer;
+            border: 1px solid #30363d; transition: opacity 0.15s;
+        }
+        .payment-img img:hover { opacity: 0.85; }
+        .payment-info h4 { margin: 0 0 8px 0; color: #58a6ff; font-size: 14px; }
+        .payment-info .info-row { font-size: 13px; color: #8b949e; margin-bottom: 5px; }
+        .payment-info .info-row strong { color: #c9d1d9; }
+        .payment-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+        /* ── Users Section ── */
+        .user-toolbar {
+            display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+        }
+        .user-toolbar .input-field { max-width: 360px; flex: 1; }
+
+        .user-table { width: 100%; border-collapse: collapse; }
+        .user-table th {
+            text-align: left; padding: 10px 14px;
+            font-size: 11px; font-weight: 600; color: #8b949e;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            border-bottom: 1px solid #21262d;
+        }
+        .user-table td {
+            padding: 12px 14px; font-size: 13px; color: #c9d1d9;
+            border-bottom: 1px solid #161b22; vertical-align: middle;
+        }
+        .user-table tr:hover td { background: #0d1117; }
+        .user-table .email-cell { color: #58a6ff; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+        .user-table .credits-cell { color: #f4c542; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+        /* ── Pagination ── */
+        .paginator {
+            display: flex; align-items: center; gap: 10px;
+            justify-content: center; margin-top: 18px;
+            padding: 12px 0;
+        }
+        .paginator .page-info {
+            font-size: 12px; color: #8b949e;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .btn-page {
+            background: #161b22; border: 1px solid #30363d;
+            color: #8b949e; padding: 6px 14px; border-radius: 7px;
+            font-size: 12px; font-family: 'Inter', sans-serif;
+            cursor: pointer; transition: all 0.15s;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .btn-page:hover:not(:disabled) { background: #21262d; color: #c9d1d9; border-color: #484f58; }
+        .btn-page:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        /* ── Logs Section ── */
+        .log-filters {
+            display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+        }
+        .filter-pill {
+            padding: 5px 14px; border-radius: 20px; border: 1px solid #30363d;
+            background: #0d1117; color: #8b949e; font-size: 12px; font-weight: 500;
+            cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s;
+        }
+        .filter-pill:hover { background: #161b22; color: #c9d1d9; }
+        .filter-pill.active-all    { background: #161b22; border-color: #484f58; color: #c9d1d9; }
+        .filter-pill.active-gen    { background: #0d2218; border-color: #3fb950; color: #3fb950; }
+        .filter-pill.active-pay    { background: #0d2035; border-color: #388bfd; color: #58a6ff; }
+        .filter-pill.active-manual { background: #2a1c00; border-color: #f4c542; color: #f4c542; }
+
+        .log-table { width: 100%; border-collapse: collapse; }
+        .log-table th {
+            text-align: left; padding: 10px 14px;
+            font-size: 11px; font-weight: 600; color: #8b949e;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            border-bottom: 1px solid #21262d;
+        }
+        .log-table td {
+            padding: 11px 14px; font-size: 12px; color: #c9d1d9;
+            border-bottom: 1px solid #161b22; vertical-align: middle;
+        }
+        .log-table tr:hover td { background: #0d1117; }
+
+        .log-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
+            white-space: nowrap;
+        }
+        .badge-gen-free   { background: #0d2218; color: #3fb950; border: 1px solid #1a4d2e; }
+        .badge-gen-paid   { background: #0d2218; color: #a8ff80; border: 1px solid #2a5a3a; }
+        .badge-pay-click  { background: #0d2035; color: #58a6ff; border: 1px solid #1f4e79; }
+        .badge-manual-pend{ background: #2a1c00; color: #f4c542; border: 1px solid #5a4000; }
+        .badge-manual-ok  { background: #0d2218; color: #3fb950; border: 1px solid #1a4d2e; }
+        .badge-manual-rej { background: #2d0f0f; color: #f85149; border: 1px solid #7a1e1e; }
+        .badge-pay-ok     { background: #0d2218; color: #3fb950; border: 1px solid #1a4d2e; }
+        .badge-pay-fail   { background: #2d0f0f; color: #f85149; border: 1px solid #7a1e1e; }
+        .badge-pay-pend   { background: #1a1a2e; color: #8b949e; border: 1px solid #30363d; }
+
+        .log-email { color: #58a6ff; font-family: 'JetBrains Mono', monospace; }
+        .log-detail { color: #8b949e; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+        .log-date { color: #484f58; font-size: 11px; white-space: nowrap; }
+        .log-amount { color: #f4c542; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+        /* ── Shared Utils ── */
+        .btn-green { background: #196128; color: #3fb950; border: 1px solid #2a6f3a; padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .btn-green:hover { background: #1f7a32; }
+        .btn-red   { background: #3d1515; color: #f85149; border: 1px solid #7a1e1e; padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+        .btn-red:hover { background: #5a2020; }
+        .table-wrap { background: #0d1117; border: 1px solid #21262d; border-radius: 12px; overflow: hidden; }
+        .table-wrap .empty-row td { text-align: center; color: #484f58; padding: 40px; }
     </style>
 </head>
-<body style="background: #0d1f35;">
+<body>
+<div class="admin-shell">
 
     <nav class="admin-nav">
-        <div class="brand"><i class="fas fa-shield-alt"></i> CVBora Admin</div>
+        <div class="admin-brand">
+            <div class="admin-brand-icon"><i class="fas fa-shield-halved"></i></div>
+            CVBora <span>Admin</span>
+        </div>
         <div>
-            <button class="btn-icon" onclick="window.close()" title="Return to App">
+            <button class="btn-icon" onclick="window.close()" title="Close">
                 <i class="fas fa-times"></i>
             </button>
         </div>
     </nav>
 
     <div class="admin-content">
-        <div class="tab-bar" style="margin-bottom: 30px; border-bottom: 1px solid #334155;">
-            <button onclick="switchAdminTab('payments')" id="tab-payments" class="tab-btn active"><i class="fas fa-coins"></i> Pending M-Pesa</button>
-            <button onclick="switchAdminTab('users')" id="tab-users" class="tab-btn"><i class="fas fa-users"></i> User Management</button>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-card blue">
+                <div class="stat-label">Total Users</div>
+                <div class="stat-value" id="statUsers">—</div>
+                <div class="stat-sub">registered accounts</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-label">Generations</div>
+                <div class="stat-value" id="statGens">—</div>
+                <div class="stat-sub">CVs & CLs created</div>
+            </div>
+            <div class="stat-card gold">
+                <div class="stat-label">Pending Payments</div>
+                <div class="stat-value" id="statPending">—</div>
+                <div class="stat-sub">awaiting review</div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-label">ClickPesa Txns</div>
+                <div class="stat-value" id="statTxns">—</div>
+                <div class="stat-sub">processed</div>
+            </div>
         </div>
 
-        <div id="content-payments" class="tab-content">
-            <h2>Pending M-Pesa Payments</h2>
+        <!-- Tab Navigation -->
+        <div class="admin-tabs">
+            <button class="admin-tab payments active" id="tab-payments" onclick="switchAdminTab('payments')">
+                <i class="fas fa-coins"></i> M-Pesa Payments
+            </button>
+            <button class="admin-tab users" id="tab-users" onclick="switchAdminTab('users')">
+                <i class="fas fa-users"></i> Users
+            </button>
+            <button class="admin-tab logs" id="tab-logs" onclick="switchAdminTab('logs')">
+                <i class="fas fa-list-ul"></i> Activity Logs
+            </button>
+        </div>
+
+        <!-- ── PAYMENTS PANEL ── -->
+        <div class="admin-panel active" id="panel-payments">
+            <div class="section-head">
+                <h2><i class="fas fa-coins" style="color:#f4c542"></i> Pending Manual M-Pesa Payments</h2>
+                <span class="count-badge" id="paymentCount">loading…</span>
+            </div>
             <div id="paymentsList">
-                <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Loading…</div>
             </div>
         </div>
 
-        <div id="content-users" class="tab-content hidden">
-            <h2>User Management</h2>
-            <div class="user-search">
-                <input type="text" id="userQuery" class="input-field" placeholder="Search by email..." style="max-width: 400px;" onkeydown="if(event.key==='Enter')searchUsers()">
-                <button onclick="searchUsers()" class="btn-generate" style="max-width: 150px;"><i class="fas fa-search"></i> Search</button>
+        <!-- ── USERS PANEL ── -->
+        <div class="admin-panel" id="panel-users">
+            <div class="section-head">
+                <h2><i class="fas fa-users" style="color:#58a6ff"></i> User Management</h2>
+                <span class="count-badge" id="userTotalBadge">—</span>
             </div>
-            <table class="user-table">
-                <thead>
-                    <tr>
-                        <th>Email</th>
-                        <th>Credits</th>
-                        <th>Free Used</th>
-                        <th>Banned?</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="userTableBody">
-                    <tr><td colspan="5" class="center-text">Enter an email to search</td></tr>
-                </tbody>
-            </table>
+            <div class="user-toolbar">
+                <input type="text" id="userQuery" class="input-field" placeholder="Search by email…"
+                       onkeydown="if(event.key==='Enter') { currentUserPage=1; loadUsers(); }">
+                <button onclick="currentUserPage=1; loadUsers();" class="btn-generate" style="width:auto; padding: 9px 20px;">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                <button onclick="document.getElementById('userQuery').value=''; currentUserPage=1; loadUsers();" class="btn-secondary">
+                    <i class="fas fa-rotate-left"></i> Reset
+                </button>
+            </div>
+            <div class="table-wrap">
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Credits</th>
+                            <th>Free Used</th>
+                            <th>Storage</th>
+                            <th>Banned?</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <tr class="empty-row"><td colspan="6">Enter an email to search or click Reset to list all users.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="paginator" id="userPaginator" style="display:none;">
+                <button class="btn-page" id="btnPrevUser" onclick="prevUserPage()">
+                    <i class="fas fa-chevron-left"></i> Prev
+                </button>
+                <span class="page-info" id="userPageInfo">Page 1 of 1</span>
+                <button class="btn-page" id="btnNextUser" onclick="nextUserPage()">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
         </div>
-    </div>
 
-    <!-- Image Modal -->
-    <div id="imgModal" class="modal-overlay hidden" onclick="this.classList.add('hidden')">
-        <img id="imgModalSrc" src="" style="max-width: 90%; max-height: 90%; margin: 5% auto; display: block; border-radius: 8px;">
-    </div>
+        <!-- ── LOGS PANEL ── -->
+        <div class="admin-panel" id="panel-logs">
+            <div class="section-head">
+                <h2><i class="fas fa-list-ul" style="color:#3fb950"></i> Activity Logs</h2>
+                <span class="count-badge" id="logTotalBadge">—</span>
+            </div>
+            <div class="log-filters">
+                <span style="font-size:12px; color:#8b949e; margin-right:4px;">Filter:</span>
+                <button class="filter-pill active-all" id="fpAll"        onclick="setLogFilter('all')">All</button>
+                <button class="filter-pill"            id="fpGen"        onclick="setLogFilter('generation')"><i class="fas fa-file-circle-check"></i> Generations</button>
+                <button class="filter-pill"            id="fpPay"        onclick="setLogFilter('payment')"><i class="fas fa-mobile-screen"></i> ClickPesa</button>
+                <button class="filter-pill"            id="fpManual"     onclick="setLogFilter('manual')"><i class="fas fa-receipt"></i> Manual M-Pesa</button>
+            </div>
+            <div class="table-wrap">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>User</th>
+                            <th>Detail</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBody">
+                        <tr class="empty-row"><td colspan="6"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="paginator" id="logPaginator" style="display:none;">
+                <button class="btn-page" id="btnPrevLog" onclick="prevLogPage()">
+                    <i class="fas fa-chevron-left"></i> Prev
+                </button>
+                <span class="page-info" id="logPageInfo">Page 1 of 1</span>
+                <button class="btn-page" id="btnNextLog" onclick="nextLogPage()">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
 
-    <script src="admin.js"></script>
+    </div><!-- /admin-content -->
+</div><!-- /admin-shell -->
+
+<!-- Image Modal -->
+<div id="imgModal" class="modal-overlay hidden" onclick="this.classList.add('hidden')">
+    <img id="imgModalSrc" src="" style="max-width:90%;max-height:90%;margin:5% auto;display:block;border-radius:10px;box-shadow:0 8px 48px rgba(0,0,0,0.7);">
+</div>
+
+<script src="admin.js"></script>
 </body>
 </html>
